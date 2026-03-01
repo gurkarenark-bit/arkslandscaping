@@ -4,11 +4,25 @@ Single Next.js App Router app at repo root.
 
 ## Architecture
 
-- Internal staff UI: `/app` (Admin / Office / Crew)
+- Internal staff portal: `/app` (Admin / Office / Crew)
 - Customer portal: `/portal`
-- Privileged server APIs: `/api/*`
-- Supabase for database, storage, realtime and staff auth
-- Custom reusable portal magic links for customer auth
+- Server APIs: `/api/*`
+- Supabase for database, storage, realtime, and staff auth
+- Custom reusable magic-link auth for customers (no passwords)
+
+## Source of Truth
+
+`docs/SPEC.md` is the canonical specification and must be followed.
+
+When requirements conflict, resolve against:
+1. `docs/SPEC.md`
+2. `docs/CHAT_CONTEXT.md`
+3. `docs/TESTPLAN.md`
+4. `docs/PARITY_CHECKLIST.md`
+
+## MVP Scope
+
+No external providers yet (no Stripe, Twilio, or Postmark). In-app messaging only.
 
 ## Required env vars
 
@@ -21,36 +35,57 @@ SUPABASE_SERVICE_ROLE_KEY=...
 PORTAL_SESSION_SECRET=... # long random string used to hash tokens + sign session cookies
 ```
 
-## Install / run
+## Supabase Setup
+
+1. Create a Supabase project.
+2. Apply migrations from `supabase/migrations/` (MVP baseline: `supabase/migrations/001_mvp_schema.sql`).
+3. Create a **private** storage bucket named `attachments`.
+4. Keep staff auth with Supabase email/password.
+5. Customer auth uses a custom reusable magic-link flow.
+6. No magic-link email provider is required in development mode.
+
+## Development Workflow
 
 ```bash
 npm ci
 npm run dev
+npm run build
+npm run test
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000` for local development.
 
-## Supabase setup
+## Portal Magic Links
 
-1. Create Supabase project.
-2. Apply SQL migration: `supabase/migrations/001_mvp_schema.sql`.
-3. Create private storage bucket named `attachments`.
-4. Keep staff auth with Supabase email/password.
-5. Customer auth is custom reusable magic-link flow (no password login in portal).
+Customer authentication is passwordless and uses reusable magic links with the following behavior:
 
-## Portal magic links (reusable, 14-day TTL)
+- reusable until expiry
+- TTL = 14 days
+- auto-login
+- stored hashed in `portal_magic_links`
+- revocable
 
+Implementation endpoints:
 - Request endpoint: `POST /api/portal/magic-link/request`
 - Consume page: `/portal/magic-link/consume?token=...`
-- Tokens are stored hashed in `portal_magic_links` and can be reused until `expires_at` unless revoked.
-- Admin can revoke tokens via `POST /api/portal/magic-link/revoke`.
-- Rate limits are enforced via `api_rate_limits` table for request and consume operations.
+- Revoke endpoint (Admin): `POST /api/portal/magic-link/revoke`
+- Request/consume rate limiting via `api_rate_limits`
 
-### Dev mode behavior
+### Development mode behavior
 
-If no outbound email provider is configured, the request endpoint returns `devMagicLink` in JSON during development so you can open it directly.
+If no outbound email provider is configured, the request endpoint returns `devMagicLink` in JSON in development so you can open it directly.
 
-## Draft / finalize rules
+## Security Model
+
+- Row Level Security (RLS) enforces tenant and role isolation at the database layer.
+- API and UI role gates enforce workflow rules:
+  - **Admin**: full access
+  - **Office**: can draft/send but cannot finalize quotes/invoices
+  - **Crew**: limited to assigned jobs and related records
+  - **Customer**: limited to records tied to their own email
+- Portal/customer sessions are secured with httpOnly cookies.
+
+## Draft / Finalize Rules
 
 - Office can send draft quotes/invoices.
 - Office cannot finalize.
@@ -59,17 +94,18 @@ If no outbound email provider is configured, the request endpoint returns `devMa
   - `POST /api/invoices/finalize`
 - UI gates e-sign until `finalized_by_admin_at` is present.
 
-## Upload hardening
+## Upload Rules
 
-- Allowed: `pdf`, `jpg/jpeg`, `png`, `heic`
-- Max 25MB
+- Allowed file types: `pdf`, `jpg`, `jpeg`, `png`, `heic`
+- Max size: 25MB
 - Server-side file signature validation
-- Private Supabase storage + signed URL responses only
-- TODO placeholder included for malware scanning
+- Private Supabase storage and signed URL access only
+- Malware scanning is planned but not yet implemented
 
-## Retention cleanup + Vercel Cron
+## Retention
 
-Use `/api/cleanup-attachments` to remove attachment records/files older than 1 year.
+- Attachment files and related references are deleted after 1 year.
+- Cleanup endpoint exists at `GET /api/cleanup-attachments`.
 
 ### Vercel Cron setup
 
@@ -88,6 +124,10 @@ Add in `vercel.json` (or Vercel dashboard equivalent):
 
 This runs daily at 04:00 UTC.
 
+## CI Behavior
+
+CI is branch-protected: `npm ci`, `npm run build`, and `npm run test` must pass before merging pull requests.
+
 ## Seed data
 
 ```bash
@@ -98,16 +138,16 @@ Creates Ark's Landscaping tenant, staff users (Admin/Office/Crew), customer, and
 
 ## Verification
 
-- Run integration test:
+- Integration/unit checks:
 
 ```bash
-npm test
+npm run test
 ```
 
-- Run RLS sanity checklist SQL:
+- RLS sanity checklist SQL:
   - `docs/rls-sanity-check.md`
 
 ## Deployment
 
 - Deploy to Vercel (Render config is deprecated for this MVP).
-- Configure env vars in Vercel project settings.
+- Configure environment variables in Vercel project settings.
