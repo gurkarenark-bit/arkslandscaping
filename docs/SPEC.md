@@ -161,3 +161,35 @@ Realtime delivery.
 GET /api/health
 
 Returns:
+{
+status: "ok"
+}
+
+
+Must not require database connection.
+
+---
+
+# Deployment Spec
+
+Platform:
+Vercel
+
+Database:
+Supabase
+
+---
+
+# CI Spec
+
+CI must pass:
+
+npm ci  
+npm run build  
+npm run test  
+
+---
+
+# Spec Compliance Requirement
+
+All implementation must reference this spec.
