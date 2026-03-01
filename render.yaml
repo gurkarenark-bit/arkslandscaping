@@ -1,0 +1,82 @@
+services:
+  - type: web
+    name: ark-api-staging
+    env: node
+    plan: starter
+    rootDir: .
+    buildCommand: npm install && npm run build -w @ark/api
+    startCommand: npm run start -w @ark/api
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ark-postgres-staging
+          property: connectionString
+      - key: JWT_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: POSTMARK_API_TOKEN
+        sync: false
+      - key: WEB_APP_BASE_URL
+        sync: false
+      - key: PORTAL_BASE_URL
+        sync: false
+
+  - type: worker
+    name: ark-worker-staging
+    env: node
+    plan: starter
+    rootDir: .
+    buildCommand: npm install && npm run build -w @ark/worker
+    startCommand: npm run start -w @ark/worker
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ark-postgres-staging
+          property: connectionString
+      - key: JWT_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: POSTMARK_API_TOKEN
+        sync: false
+      - key: API_BASE_URL
+        sync: false
+
+  - type: web
+    name: ark-web-app-staging
+    env: node
+    plan: starter
+    rootDir: .
+    buildCommand: npm install && npm run build -w @ark/web-app
+    startCommand: npm run start -w @ark/web-app
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NEXT_PUBLIC_API_BASE_URL
+        sync: false
+
+  - type: web
+    name: ark-portal-staging
+    env: node
+    plan: starter
+    rootDir: .
+    buildCommand: npm install && npm run build -w @ark/portal
+    startCommand: npm run start -w @ark/portal
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NEXT_PUBLIC_API_BASE_URL
+        sync: false
+
+databases:
+  - name: ark-postgres-staging
+    plan: starter
+    databaseName: ark_staging
+    user: ark_staging_user
