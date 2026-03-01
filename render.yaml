@@ -19,12 +19,8 @@ services:
         sync: false
       - key: ENCRYPTION_KEY
         sync: false
-      - key: POSTMARK_API_TOKEN
-        sync: false
-      - key: WEB_APP_BASE_URL
-        sync: false
-      - key: PORTAL_BASE_URL
-        sync: false
+      - key: EMAIL_ENABLED
+        value: "false"
 
   - type: worker
     name: ark-worker-staging
@@ -44,10 +40,8 @@ services:
         sync: false
       - key: ENCRYPTION_KEY
         sync: false
-      - key: POSTMARK_API_TOKEN
-        sync: false
-      - key: API_BASE_URL
-        sync: false
+      - key: EMAIL_ENABLED
+        value: "false"
 
   - type: web
     name: ark-web-app-staging
@@ -77,6 +71,6 @@ services:
 
 databases:
   - name: ark-postgres-staging
-    plan: starter
+    plan: basic-256mb
     databaseName: ark_staging
     user: ark_staging_user
