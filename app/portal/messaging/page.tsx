@@ -2,13 +2,48 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { createAnonClient } from '@/lib/supabase';
-import { threads } from '@/lib/mvp-data';
+import { threads as demoThreads } from '@/lib/mvp-data';
+
+type Thread = {
+  id: string;
+  tenant_id: string;
+  customer_id: string | null;
+  subject: string | null;
+};
+
+type Message = {
+  id: string;
+  thread_id: string;
+  body: string;
+  sender_user_id: string | null;
+  sender_customer_id: string | null;
+  created_at: string;
+};
 
 export default function PortalMessagesPage() {
-  const [selectedId, setSelectedId] = useState(threads[0]?.id ?? '');
+  const [selectedId, setSelectedId] = useState('');
   const [liveCount, setLiveCount] = useState(0);
-  const [localThreads, setLocalThreads] = useState(threads);
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
+
+  useEffect(() => {
+    const load = async () => {
+      const response = await fetch('/api/messages', { cache: 'no-store' });
+      if (!response.ok) {
+        setThreads(
+          demoThreads.map((thread) => ({ id: thread.id, tenant_id: '', customer_id: thread.customerId, subject: thread.subject }))
+        );
+        return;
+      }
+      const payload = await response.json();
+      setThreads(payload.threads ?? []);
+      setMessages(payload.messages ?? []);
+      if ((payload.threads ?? []).length > 0) setSelectedId(payload.threads[0].id);
+    };
+
+    load();
+  }, []);
 
   useEffect(() => {
     const supabase = createAnonClient();
@@ -22,22 +57,27 @@ export default function PortalMessagesPage() {
     };
   }, []);
 
-  const active = useMemo(() => localThreads.find((thread) => thread.id === selectedId), [localThreads, selectedId]);
+  const active = useMemo(() => threads.find((thread) => thread.id === selectedId), [threads, selectedId]);
+  const activeMessages = useMemo(
+    () => messages.filter((message) => message.thread_id === selectedId),
+    [messages, selectedId]
+  );
 
-  const onSend = (event: FormEvent) => {
+  const onSend = async (event: FormEvent) => {
     event.preventDefault();
     if (!active || !draft.trim()) return;
-    setLocalThreads((current) =>
-      current.map((thread) =>
-        thread.id === selectedId
-          ? {
-              ...thread,
-              messages: [...thread.messages, { id: `local-${Date.now()}`, sender: 'Customer', body: draft, createdAt: new Date().toISOString() }]
-            }
-          : thread
-      )
-    );
-    setDraft('');
+
+    const response = await fetch('/api/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ thread_id: active.id, body: draft })
+    });
+
+    if (response.ok) {
+      const message = await response.json();
+      setMessages((current) => [...current, message]);
+      setDraft('');
+    }
   };
 
   return (
@@ -47,14 +87,24 @@ export default function PortalMessagesPage() {
       <div className="split">
         <aside>
           <ul>
-            {localThreads.map((thread) => (
-              <li key={thread.id}><button type="button" onClick={() => setSelectedId(thread.id)}>{thread.subject}</button></li>
+            {threads.map((thread) => (
+              <li key={thread.id}>
+                <button type="button" onClick={() => setSelectedId(thread.id)}>
+                  {thread.subject ?? 'Thread'}
+                </button>
+              </li>
             ))}
           </ul>
         </aside>
         <section>
           <h4>{active?.subject}</h4>
-          <ul>{active?.messages.map((message) => <li key={message.id}><strong>{message.sender}:</strong> {message.body}</li>)}</ul>
+          <ul>
+            {activeMessages.map((message) => (
+              <li key={message.id}>
+                <strong>{message.sender_customer_id ? 'You' : 'Staff'}:</strong> {message.body}
+              </li>
+            ))}
+          </ul>
           <form onSubmit={onSend}>
             <label htmlFor="portal-msg">Message</label>
             <textarea id="portal-msg" value={draft} onChange={(event) => setDraft(event.target.value)} />
