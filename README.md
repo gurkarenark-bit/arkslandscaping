@@ -1,43 +1,64 @@
-# Ark Landscaping Monorepo
+# Ark's Landscaping MVP (Next.js + Supabase)
 
-This monorepo contains four deployable Node/TypeScript apps and one Render PostgreSQL database:
+This repository is refactored into a **single Next.js App Router app at the repo root** for Vercel deployment.
 
-- `apps/api` - NestJS API (`/health` endpoint)
-- `apps/web-app` - Next.js public app
-- `apps/portal` - Next.js portal app
-- `apps/worker` - Node TypeScript worker process
-- `render.yaml` - Render Blueprint describing staging services
+## Architecture
 
-## Deploy on Render
+- `/app` internal staff UI (Admin / Office / Crew)
+- `/portal` customer-facing portal
+- `/api` Next.js route handlers for privileged server-side actions
+- Supabase for auth, Postgres, storage, and realtime messaging
 
-1. Push this repository to GitHub.
-2. In Render, click **New +** -> **Blueprint**, connect the repo, and apply `render.yaml`.
-3. Set required API secrets on `ark-api-staging`:
-   - `JWT_SECRET`
-   - `ENCRYPTION_KEY`
-4. Set `NEXT_PUBLIC_API_BASE_URL` on both frontend services:
-   - `ark-web-app-staging`
-   - `ark-portal-staging`
-5. Use Render default service URLs for MVP (you can add custom domains later).
+> `render.yaml` is no longer used by this MVP architecture and should be ignored.
 
-Notes:
+## Environment variables
 
-- `DATABASE_URL` is wired automatically from `ark-postgres-staging` in `render.yaml`.
-- Email is optional by default (`EMAIL_ENABLED=false`) and the app boots without Postmark.
+Create `.env.local` with:
 
-## Local development (optional)
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
 
-From repo root:
+## Supabase setup
+
+1. Create a new Supabase project.
+2. Run SQL from `supabase/migrations/001_mvp_schema.sql`.
+3. Create a private storage bucket named `attachments`.
+4. Configure auth:
+   - Enable magic-link / OTP for customer flows.
+   - Set customer session expiry to 14 days.
+   - Keep email/password enabled for staff users.
+
+## Local development
 
 ```bash
 npm install
+npm run dev
 ```
 
-Run each service as needed:
+Open http://localhost:3000.
+
+## Seed demo data
 
 ```bash
-npm run start:dev -w @ark/api
-npm run start:dev -w @ark/worker
-npm run dev -w @ark/web-app
-npm run dev -w @ark/portal
+npm run db:seed
 ```
+
+Creates Ark's Landscaping tenant + demo Admin/Office/Crew/Customer users, customer record, and a sample job/visit.
+
+## Security highlights
+
+- RLS enabled with tenant isolation and role-aware policy examples.
+- Office users can create/send drafts but cannot finalize quotes/invoices.
+- Crew can update ETA and access assigned jobs.
+- Customer visibility is automatically tied to matching customer email.
+- Attachment uploads enforce MIME type + basic file-signature checks, max 25MB, private storage + signed URL response.
+- Placeholder cleanup API route exists for scheduled 1-year attachment retention deletion.
+
+## Deploying to Vercel
+
+1. Import this repo to Vercel.
+2. Set the three env vars above in Vercel project settings.
+3. Deploy (no Render config required).
