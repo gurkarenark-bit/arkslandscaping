@@ -3,6 +3,8 @@ import { createRawMagicToken, tokenHash } from '@/lib/portal-auth';
 import { createServiceClient } from '@/lib/supabase';
 import { enforceRateLimit } from '@/lib/rate-limit';
 
+export const runtime = 'nodejs';
+
 const REQUESTS_PER_HOUR_EMAIL = 5;
 const REQUESTS_PER_HOUR_IP = 30;
 const TTL_MS = 14 * 24 * 60 * 60 * 1000;
@@ -47,29 +49,20 @@ export async function POST(request: Request) {
     customer = insert.data;
   }
 
-  const now = new Date();
   const rawToken = createRawMagicToken();
-  const expiresAt = new Date(now.getTime() + TTL_MS);
-
-  // Safe rule: always mint a new token and keep old active tokens reusable until expiry/revocation.
-  // This avoids returning previously issued raw tokens while preserving reuse semantics.
-  const hashed = tokenHash(rawToken);
+  const expiresAt = new Date(Date.now() + TTL_MS);
 
   const { error: linkError } = await supabase.from('portal_magic_links').insert({
     tenant_id: tenant.id,
     customer_id: customer.id,
     token_prefix: rawToken.slice(0, 12),
-    token_hash: hashed,
-    expires_at: expiresAt.toISOString()
+    token_hash: tokenHash(rawToken),
+    expires_at: expiresAt.toISOString(),
+    created_ip: ip,
+    created_user_agent: request.headers.get('user-agent')
   });
 
   if (linkError) return NextResponse.json({ error: linkError.message }, { status: 500 });
-
-  await supabase.from('in_app_notifications').insert({
-    tenant_id: tenant.id,
-    title: 'Portal link requested',
-    body: `Portal magic link requested for ${normalizedEmail}`
-  });
 
   const link = `${new URL(request.url).origin}/portal/magic-link/consume?token=${rawToken}`;
   return NextResponse.json({

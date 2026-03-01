@@ -1,20 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const canPerform = (role, action) => {
-  const permissions = {
-    admin: new Set(['read', 'write', 'manage-users']),
-    staff: new Set(['read', 'write']),
-    viewer: new Set(['read'])
-  };
+const canFinalizeDocument = (role) => role === 'Admin';
 
-  return permissions[role]?.has(action) ?? false;
-};
-
-test('permission matrix enforces least privilege', () => {
-  assert.equal(canPerform('admin', 'manage-users'), true);
-  assert.equal(canPerform('staff', 'manage-users'), false);
-  assert.equal(canPerform('viewer', 'write'), false);
-  assert.equal(canPerform('viewer', 'read'), true);
-  assert.equal(canPerform('unknown', 'read'), false);
+test('office cannot finalize quotes or invoices', () => {
+  assert.equal(canFinalizeDocument('Admin'), true);
+  assert.equal(canFinalizeDocument('Office'), false);
+  assert.equal(canFinalizeDocument('Crew'), false);
+  assert.equal(canFinalizeDocument('Customer'), false);
 });

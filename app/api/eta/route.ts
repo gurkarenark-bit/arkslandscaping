@@ -4,17 +4,29 @@ import { requireStaffRole } from '@/lib/staff-auth';
 
 export async function POST(request: Request) {
   try {
-    requireStaffRole(['Admin', 'Crew']);
-    const { visitId, eta, tenantId } = await request.json();
+    const role = requireStaffRole(['Admin', 'Crew']);
+    const { visitId, eta } = await request.json();
     const supabase = createServiceClient();
 
-    const { error } = await supabase.from('job_visits').update({ eta }).eq('id', visitId);
+    const { data: visit, error: visitError } = await supabase
+      .from('job_visits')
+      .select('id,tenant_id,job_id,start_time')
+      .eq('id', visitId)
+      .single();
+    if (visitError) return NextResponse.json({ error: visitError.message }, { status: 400 });
+
+    const arrivalWindowEnd = new Date(new Date(visit.start_time).getTime() + 60 * 60 * 1000).toISOString();
+    const { error } = await supabase
+      .from('job_visits')
+      .update({ eta, arrival_window_start: visit.start_time, arrival_window_end: arrivalWindowEnd })
+      .eq('id', visitId);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
     await supabase.from('in_app_notifications').insert({
-      tenant_id: tenantId ?? null,
+      tenant_id: visit.tenant_id,
+      related_job_id: visit.job_id,
       title: 'ETA update',
-      body: `Visit ${visitId} ETA changed to ${eta}`
+      body: `ETA changed to ${eta} by ${role}`
     });
 
     return NextResponse.json({ ok: true });
