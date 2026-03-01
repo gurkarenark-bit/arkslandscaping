@@ -58,7 +58,6 @@ export async function POST(request: Request) {
   const { error: linkError } = await supabase.from('portal_magic_links').insert({
     tenant_id: tenant.id,
     customer_id: customer.id,
-    token_prefix: rawToken.slice(0, 12),
     token_hash: hashed,
     expires_at: expiresAt.toISOString()
   });

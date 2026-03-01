@@ -14,8 +14,8 @@ export default async function ConsumeMagicLinkPage({ searchParams }: { searchPar
   if (!token) redirect('/portal/auth?error=missing_token');
 
   const ip = headers().get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  const tokenKey = token.slice(0, 12);
-  if (!(await enforceRateLimit(`magic-consume-token:${tokenKey}`, ATTEMPTS_PER_HOUR_TOKEN))) {
+  const tokenHashKey = token.slice(0, 12);
+  if (!(await enforceRateLimit(`magic-consume-token:${tokenHashKey}`, ATTEMPTS_PER_HOUR_TOKEN))) {
     redirect('/portal/auth?error=rate_limit_token');
   }
   if (!(await enforceRateLimit(`magic-consume-ip:${ip}`, ATTEMPTS_PER_HOUR_IP))) {
@@ -26,10 +26,10 @@ export default async function ConsumeMagicLinkPage({ searchParams }: { searchPar
   const { data: link } = await supabase
     .from('portal_magic_links')
     .select('id,token_hash,expires_at,revoked_at,tenant_id,customer_id,customers(email)')
-    .eq('token_prefix', tokenKey)
     .is('revoked_at', null)
+    .gte('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
-    .limit(5);
+    .limit(200);
 
   const match = (link ?? []).find((row) =>
     isMagicLinkValid(
