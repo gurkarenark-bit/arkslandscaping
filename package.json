@@ -1,0 +1,11 @@
+{
+  "name": "arkslandscaping-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @ark/api && npm run build -w @ark/worker && npm run build -w @ark/web-app && npm run build -w @ark/portal",
+    "dev": "echo \"Use app-specific dev scripts\""
+  }
+}
