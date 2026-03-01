@@ -1,0 +1,36 @@
+name: CI
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps (npm ci)
+        run: npm ci
+
+      - name: Lint (optional)
+        run: npm run lint --if-present
+
+      - name: Typecheck (optional)
+        run: npm run typecheck --if-present
+
+      - name: Unit tests (optional)
+        run: npm run test --if-present
+
+      - name: Build (required)
+        run: npm run build
