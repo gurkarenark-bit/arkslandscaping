@@ -1,11 +1,5 @@
-import { InternalNav } from '@/components/nav';
+import { StaffShell } from '@/components/staff-shell';
 
 export default function InternalLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div>
-      <h2>Internal Staff</h2>
-      <InternalNav />
-      {children}
-    </div>
-  );
+  return <StaffShell>{children}</StaffShell>;
 }

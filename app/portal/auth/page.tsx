@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 
 export default function PortalAuthPage() {
   const [message, setMessage] = useState('');
+  const [devLink, setDevLink] = useState('');
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -19,22 +20,30 @@ export default function PortalAuthPage() {
     const payload = await response.json();
     if (!response.ok) {
       setMessage(payload.error ?? 'Unable to request link');
+      setDevLink('');
       return;
     }
 
-    setMessage(payload.devMagicLink ? `Dev link: ${payload.devMagicLink}` : 'Portal link requested. Check configured delivery channel.');
+    setMessage('Magic link requested. In dev mode, use the generated link below.');
+    setDevLink(payload.devMagicLink ?? '');
   };
 
   return (
     <div className="card">
       <h3>Portal Login</h3>
-      <p>Customers authenticate with reusable portal magic links only (no password login).</p>
+      <p>Request a reusable (14-day) magic link. Auto-login happens on consume.</p>
       <form onSubmit={onSubmit}>
         <label htmlFor="email">Email</label>
         <input id="email" name="email" type="email" required />
         <button type="submit">Request magic link</button>
       </form>
       <p>{message}</p>
+      {devLink ? (
+        <>
+          <pre>{JSON.stringify({ devMagicLink: devLink }, null, 2)}</pre>
+          <a href={devLink}>Open dev magic link</a>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -1,16 +1,38 @@
-import Link from 'next/link';
+'use client';
+
+import { useStaffSession } from '@/components/staff-shell';
+import { jobsForRole, visitsForRole } from '@/lib/mvp-data';
 
 export default function InternalDashboard() {
+  const session = useStaffSession();
+  const jobs = jobsForRole(session.role);
+  const visits = visitsForRole(session.role);
+
+  const counts = jobs.reduce<Record<string, number>>((acc, job) => {
+    acc[job.status] = (acc[job.status] ?? 0) + 1;
+    return acc;
+  }, {});
+
   return (
     <div className="card">
-      <h3>Staff Login (MVP placeholder)</h3>
-      <p>Use Supabase email/password auth for Admin, Office, and Crew users.</p>
+      <h3>Dashboard</h3>
+      <p>Today’s schedule</p>
       <ul>
-        <li>Office can schedule/reschedule, draft quote/invoice, respond, add change orders.</li>
-        <li>Admin can finalize quotes and invoices.</li>
-        <li>Crew sees assigned customers/jobs only, updates ETA, messages, uploads attachments.</li>
+        {visits.map((visit) => (
+          <li key={visit.id}>
+            {visit.title} — {new Date(visit.scheduledStart).toLocaleTimeString()} (window ends{' '}
+            {new Date(new Date(visit.scheduledStart).getTime() + 60 * 60 * 1000).toLocaleTimeString()})
+          </li>
+        ))}
       </ul>
-      <Link href="/app/jobs">Go to jobs</Link>
+      <h4>Status counts</h4>
+      <ul>
+        {Object.entries(counts).map(([status, count]) => (
+          <li key={status}>
+            {status}: {count}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
