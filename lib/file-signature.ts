@@ -1,14 +1,20 @@
-const signatures: Record<string, number[][]> = {
-  'application/pdf': [[0x25, 0x50, 0x44, 0x46]],
-  'image/png': [[0x89, 0x50, 0x4e, 0x47]],
-  'image/jpeg': [[0xff, 0xd8, 0xff]],
-  'image/heic': [[0x00, 0x00, 0x00]]
-};
+function startsWith(buffer: Uint8Array, sequence: number[]) {
+  return sequence.every((byte, idx) => buffer[idx] === byte);
+}
 
-export const allowedMimeTypes = Object.keys(signatures);
+function isHeic(buffer: Uint8Array) {
+  if (buffer.length < 12) return false;
+  const ftyp = String.fromCharCode(...buffer.slice(4, 8));
+  const brand = String.fromCharCode(...buffer.slice(8, 12));
+  return ftyp === 'ftyp' && ['heic', 'heix', 'hevc', 'hevx', 'mif1'].includes(brand);
+}
+
+export const allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/heic'];
 
 export function isValidSignature(buffer: Uint8Array, mimeType: string) {
-  const options = signatures[mimeType];
-  if (!options) return false;
-  return options.some((sig) => sig.every((byte, idx) => buffer[idx] === byte));
+  if (mimeType === 'application/pdf') return startsWith(buffer, [0x25, 0x50, 0x44, 0x46]);
+  if (mimeType === 'image/png') return startsWith(buffer, [0x89, 0x50, 0x4e, 0x47]);
+  if (mimeType === 'image/jpeg') return startsWith(buffer, [0xff, 0xd8, 0xff]);
+  if (mimeType === 'image/heic') return isHeic(buffer);
+  return false;
 }

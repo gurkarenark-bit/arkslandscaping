@@ -1,64 +1,113 @@
-# Ark's Landscaping MVP (Next.js + Supabase)
+# Ark's Landscaping MVP (Vercel + Supabase)
 
-This repository is refactored into a **single Next.js App Router app at the repo root** for Vercel deployment.
+Single Next.js App Router app at repo root.
 
 ## Architecture
 
-- `/app` internal staff UI (Admin / Office / Crew)
-- `/portal` customer-facing portal
-- `/api` Next.js route handlers for privileged server-side actions
-- Supabase for auth, Postgres, storage, and realtime messaging
+- Internal staff UI: `/app` (Admin / Office / Crew)
+- Customer portal: `/portal`
+- Privileged server APIs: `/api/*`
+- Supabase for database, storage, realtime and staff auth
+- Custom reusable portal magic links for customer auth
 
-> `render.yaml` is no longer used by this MVP architecture and should be ignored.
+## Required env vars
 
-## Environment variables
-
-Create `.env.local` with:
+Create `.env.local`:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
+PORTAL_SESSION_SECRET=... # long random string used to hash tokens + sign session cookies
 ```
 
-## Supabase setup
-
-1. Create a new Supabase project.
-2. Run SQL from `supabase/migrations/001_mvp_schema.sql`.
-3. Create a private storage bucket named `attachments`.
-4. Configure auth:
-   - Enable magic-link / OTP for customer flows.
-   - Set customer session expiry to 14 days.
-   - Keep email/password enabled for staff users.
-
-## Local development
+## Install / run
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open `http://localhost:3000`.
 
-## Seed demo data
+## Supabase setup
+
+1. Create Supabase project.
+2. Apply SQL migration: `supabase/migrations/001_mvp_schema.sql`.
+3. Create private storage bucket named `attachments`.
+4. Keep staff auth with Supabase email/password.
+5. Customer auth is custom reusable magic-link flow (no password login in portal).
+
+## Portal magic links (reusable, 14-day TTL)
+
+- Request endpoint: `POST /api/portal/magic-link/request`
+- Consume page: `/portal/magic-link/consume?token=...`
+- Tokens are stored hashed in `portal_magic_links` and can be reused until `expires_at` unless revoked.
+- Admin can revoke tokens via `POST /api/portal/magic-link/revoke`.
+- Rate limits are enforced via `api_rate_limits` table for request and consume operations.
+
+### Dev mode behavior
+
+If no outbound email provider is configured, the request endpoint returns `devMagicLink` in JSON during development so you can open it directly.
+
+## Draft / finalize rules
+
+- Office can send draft quotes/invoices.
+- Office cannot finalize.
+- Admin-only finalize endpoints:
+  - `POST /api/quotes/finalize`
+  - `POST /api/invoices/finalize`
+- UI gates e-sign until `finalized_by_admin_at` is present.
+
+## Upload hardening
+
+- Allowed: `pdf`, `jpg/jpeg`, `png`, `heic`
+- Max 25MB
+- Server-side file signature validation
+- Private Supabase storage + signed URL responses only
+- TODO placeholder included for malware scanning
+
+## Retention cleanup + Vercel Cron
+
+Use `/api/cleanup-attachments` to remove attachment records/files older than 1 year.
+
+### Vercel Cron setup
+
+Add in `vercel.json` (or Vercel dashboard equivalent):
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cleanup-attachments",
+      "schedule": "0 4 * * *"
+    }
+  ]
+}
+```
+
+This runs daily at 04:00 UTC.
+
+## Seed data
 
 ```bash
 npm run db:seed
 ```
 
-Creates Ark's Landscaping tenant + demo Admin/Office/Crew/Customer users, customer record, and a sample job/visit.
+Creates Ark's Landscaping tenant, staff users (Admin/Office/Crew), customer, and sample job/visit.
 
-## Security highlights
+## Verification
 
-- RLS enabled with tenant isolation and role-aware policy examples.
-- Office users can create/send drafts but cannot finalize quotes/invoices.
-- Crew can update ETA and access assigned jobs.
-- Customer visibility is automatically tied to matching customer email.
-- Attachment uploads enforce MIME type + basic file-signature checks, max 25MB, private storage + signed URL response.
-- Placeholder cleanup API route exists for scheduled 1-year attachment retention deletion.
+- Run integration test:
 
-## Deploying to Vercel
+```bash
+npm test
+```
 
-1. Import this repo to Vercel.
-2. Set the three env vars above in Vercel project settings.
-3. Deploy (no Render config required).
+- Run RLS sanity checklist SQL:
+  - `docs/rls-sanity-check.md`
+
+## Deployment
+
+- Deploy to Vercel (Render config is deprecated for this MVP).
+- Configure env vars in Vercel project settings.

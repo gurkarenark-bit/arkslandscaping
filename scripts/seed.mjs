@@ -9,38 +9,40 @@ if (!url || !serviceKey) {
 
 const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
 
-const users = [
+const staffUsers = [
   { email: 'admin@arkslandscaping.local', password: 'Password123!', role: 'Admin', full_name: 'Alice Admin' },
   { email: 'office@arkslandscaping.local', password: 'Password123!', role: 'Office', full_name: 'Oscar Office' },
-  { email: 'crew@arkslandscaping.local', password: 'Password123!', role: 'Crew', full_name: 'Casey Crew' },
-  { email: 'customer@example.com', password: 'Password123!', role: 'Customer', full_name: 'Chris Customer' }
+  { email: 'crew@arkslandscaping.local', password: 'Password123!', role: 'Crew', full_name: 'Casey Crew' }
 ];
 
-const { data: tenant } = await supabase.from('tenants').insert({ name: "Ark's Landscaping" }).select().single();
+const { data: tenant } = await supabase.from('tenants').upsert({ name: "Ark's Landscaping" }).select().single();
 
-for (const user of users) {
+for (const user of staffUsers) {
   const { data, error } = await supabase.auth.admin.createUser({
     email: user.email,
     password: user.password,
     email_confirm: true,
     user_metadata: { full_name: user.full_name }
   });
-  if (error) throw error;
+  if (error && !error.message.includes('already')) throw error;
+
+  const userId = data?.user?.id ?? (await supabase.auth.admin.listUsers()).data.users.find((u) => u.email === user.email)?.id;
+  if (!userId) throw new Error(`Unable to resolve user id for ${user.email}`);
 
   await supabase.from('user_profiles').upsert({
-    user_id: data.user.id,
+    user_id: userId,
     tenant_id: tenant.id,
     role: user.role,
     full_name: user.full_name
   });
 }
 
-const { data: customer } = await supabase.from('customers').insert({
+const { data: customer } = await supabase.from('customers').upsert({
   tenant_id: tenant.id,
   email: 'customer@example.com',
   phone: '555-0100',
   full_name: 'Chris Customer'
-}).select().single();
+}, { onConflict: 'tenant_id,email' }).select().single();
 
 const { data: job } = await supabase.from('jobs').insert({
   tenant_id: tenant.id,
