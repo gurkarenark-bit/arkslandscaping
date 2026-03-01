@@ -4,6 +4,8 @@ import { createServiceClient } from '@/lib/supabase';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { isMagicLinkValid, setPortalSessionCookie } from '@/lib/portal-auth';
 
+export const runtime = 'nodejs';
+
 const ATTEMPTS_PER_HOUR_TOKEN = 20;
 const ATTEMPTS_PER_HOUR_IP = 60;
 
@@ -48,7 +50,7 @@ export default async function ConsumeMagicLinkPage({ searchParams }: { searchPar
     {
       tenantId: match.tenant_id,
       customerId: match.customer_id,
-      email: (match.customers as { email: string } | null)?.email ?? ''
+      email: (match.customers as { email: string }[] | null)?.[0]?.email ?? ''
     },
     new Date(match.expires_at)
   );
