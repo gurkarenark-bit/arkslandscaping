@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyPortalSessionToken } from '@/lib/portal-auth';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -9,7 +8,7 @@ export function middleware(request: NextRequest) {
   if (publicPortalPaths.some((path) => pathname.startsWith(path))) return NextResponse.next();
 
   const raw = request.cookies.get('portal_session')?.value;
-  if (!raw || !verifyPortalSessionToken(raw)) {
+  if (!raw) {
     const redirectUrl = new URL('/portal/auth', request.url);
     return NextResponse.redirect(redirectUrl);
   }

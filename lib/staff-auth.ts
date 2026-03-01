@@ -6,6 +6,10 @@ export function getRequestedStaffRole() {
   return role;
 }
 
+export function getRequestedTenantId() {
+  return headers().get('x-tenant-id');
+}
+
 export function requireStaffRole(allowed: AppRole[]) {
   const role = getRequestedStaffRole();
   if (!role || !allowed.includes(role)) {
